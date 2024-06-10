@@ -13,3 +13,6 @@ This is where I started from, the original [nESP repository](https://github.com/
 
 - **Microcontroller**: ESP32-S3 - WT32-S3-WROVER-N16R8
   - **LCD Interface**: ST7701S - 480x480
+![nESP Display](https://github.com/your-username/your-repository/blob/main/path-to-your-image.jpg)
+
+
