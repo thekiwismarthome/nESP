@@ -1,79 +1,121 @@
-# These substitutions allow the end user to override certain values
 substitutions:
+  name: hello
   board: 'esp32-s3-devkitc-1'
-  friendly_name: 'nESP'
-  device_name: 'nesp'
+  friendly_name: 'hello'
+  device_name: 'hello'
   node_name: 'nesp'
   device_description: 'Rotary Display thermostat on device with WT32-S3-WROVER (16MB) with ST7701S display'  
-
   project_base: 'Veli'
   project_name: 'Knob'
   project_version: '0.2'
-##########################################################
-# Home assistant climate entity you want to control with nESP
-# replace this with your own
-##########################################################
-
-  climate_entity: climate.ac_living_room
   min_value: "15"
   max_value: "35"
   initial_value: "21"
+  ## HA Entities
+  climate_entity: climate.ac_living_room
+  light_entity: light.lounge_dimmer_2
 
-##########################################################
-# /end customizing
-##########################################################  
+ 
   # for QR code generating
   ap_ssid: ${device_name}
   ap_password: ${device_name}
+  ap_guest_ssid: !secret ap_guest_ssid
+  ap_guest_password: !secret ap_guest_password
 
 esphome:
-  name: ${device_name}
-  # Automatically add the mac address to the name
-  # so you can use a single firmware for all devices
-  name_add_mac_suffix: false  
-  friendly_name: ${friendly_name}
-  comment: ${device_description}
-  # This will allow for (future) project identification,
-  # configuration and updates.  
-  project:
-    name: ${project_base}.${project_name}
-    version: $project_version
-  # special board needs special options    
-  platformio_options:
-    #platform: https://github.com/platformio/platform-espressif32.git
-    platform: https://github.com/sgryphon/platform-espressif32.git
-    board: esp32-s3-devkitc-1
-    framework: arduino
-    # framework: esp-idf
-    platform_packages:
-#   		- https://github.com/espressif/esp-idf
-      - framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32
-      - framework-arduinoespressif32-libs @ https://github.com/espressif/esp32-arduino-libs.git#idf-release/v5.1
+  name: ${name}
+  friendly_name: hello
   on_boot:
-    priority: -100.0 #  At this priority, pretty much everything should already be initialized. 
-    then: 
-      - script.execute: show_page_boot
+    # priority: 900
+    # then:
+      # - lambda: |-
+      #     id(cpu_speed) = ESP.getCpuFreqMHz();
+    - light.turn_on:
+        id: led_ring
+        effect: rainbow
+
+  platformio_options:
+    board_build.flash_mode: dio
+  # platformio_options:
+  #   platform: https://github.com/platformio/platform-espressif32.git
+  #   board: ${board}
+  #   framework: arduino
+    # platform_packages:
+    #   - framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32
+    #   - framework-arduinoespressif32-libs @ https://github.com/espressif/esp32-arduino-libs.git#idf-release/v5.1
+external_components:
+  - source: github://pr#4330
+    components: [internal_temperature]
+    refresh: always
+  # - source:
+  #     type: local
+  #     path: my_components
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome/
+      ref: dev
+    components: [ st7701s ]
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: ${board}
+  variant: esp32s3
+  flash_size: 16MB
   framework:
     # type: arduino
     type: esp-idf
-    version: latest
 
-# To be able to get logs from the device via serial and api.
+web_server:
+
+globals:
+  - id: cpu_speed
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+improv_serial:
+
+packages:
+  colors: !include nesp/colors/homeassistant
+  # lvgl: !include nesp/packages/lvgl-package.yaml
+
+# font:
+#   - file: 'gfonts://Roboto@400'
+#     glyphs: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ°.:/+- ' 
+#     id: regular
+#     size: 24
+#   - file: 'gfonts://Roboto@400'
+#     glyphs: ' -0123456789°Cecohi'
+#     id: huge
+#     size: 80
+#   - file: 'gfonts://Roboto@400'
+#     glyphs: ' -0123456789°Cecohi'
+#     id: medium
+#     size: 60
+#   - file: 'fonts/fa-regular-400.ttf'
+#     glyphs: "\uf06c\uf7ae\uf79a\uf06d\uf1eb\ue137\uf011\ue487\uf293\ue00d\uf015\ue1b0\uf624\ue3b0\ue1a7\uf2dc\ue004\uf775\uf2f1\uf863\uf750\uf017"
+#     id: symbol
+#     size: 32
+
+# esp32_ble_tracker:
+
+# bluetooth_proxy:
+#   active: true
+
+
+# Enable logging
 logger:
   level: VERBOSE
 
-# API is a requirement of the dashboard import.
+debug:
+  update_interval: 30s
+
+# Enable Home Assistant API
 api:
+  encryption:
+    key: !secret api_encryption
 
-# OTA is required for Over-the-Air updating
 ota:
-
-# This should point to the public location of this yaml file.
-dashboard_import:
-  package_import_url: github://velijv/nesp/nesp.yaml@main
+  password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -87,69 +129,213 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "nESP Fallback Hotspot"
+    ssid: "hello Fallback Hotspot"
     password: !secret ota_password
 
-# In combination with the `ap` this allows the user
-# to provision wifi credentials to the device.
 captive_portal:
 
-web_server:
+sensor:
 
-globals:
-  - id: cpu_speed
-    type: int
-    restore_value: no
-    initial_value: '0'
-##########################################################
-# Most projects should not remove anything from above here
-# and should just modify the name, project name/version 
-# and git url for the dashboard_import
-##########################################################
+  - platform: rotary_encoder
+    name: "${friendly_name} Rotary Encoder"
+    id: rotaryencoder
+    pin_a: 
+      number: GPIO6
+      mode: INPUT
+      #  input: true
+      #  pullup: true
+    pin_b: 
+      number: GPIO5
+      mode: INPUT
+      #  input: true
+      #  pullup: true
+    min_value: 0
+    max_value: 25
+    # filters:
+    #   debounce: 30ms
+    restore_mode: ALWAYS_ZERO
+    filters:
+      - or:
+        - debounce: 0.1s
+        - delta: 10
+    on_value:
+      then:
+        - homeassistant.service:
+            service: light.turn_on
+            data_template:
+              entity_id: light.lounge_dimmer_2
+              brightness_pct: "{{ brightness_1 | int }}"
+            variables:
+              brightness_1: 'return id(rotaryencoder).state * 4;'
 
 
-# Sets up Bluetooth LE (Only on ESP32) to allow the user
-# to provision wifi credentials to the device.
-## esp32_improv:
-##  authorizer: none
-## > ESP32S2 does not support Bluetooth
+  - platform: internal_temperature
+    name: "Internal Temperature"
 
-# Sets up the improv via serial client for Wi-Fi provisioning.
-# Handy if your device has a usb port for the user to add credentials when they first get it.
-# improv_serial:
-#   next_url: https://veli.ee/esphome?device_name={{device_name}}&ip_address={{ip_address}}&esphome_version={{esphome_version}}  
+  # - platform: template
+  #   name: "ESP CPU Speed"
+  #   accuracy_decimals: 0
+  #   icon: mdi:cpu-32-bit
+  #   unit_of_measurement: Mhz
+  #   disabled_by_default: True
+  #   lambda: |-
+  #     return (id(cpu_speed));
+  #   entity_category: "diagnostic"
+  #   update_interval: 600s
 
-##########################################################
-# nESP starts here
-##########################################################
-external_components:
-  - source: github://clydebarrow/esphome@lvgl
-    refresh: 10min
-    components: [lvgl, font, display, ft5x06]
-  - source: github://pr#5872
-    refresh: 10min
-    components: [st7701s]
+  # - platform: template
+  #   id: sys_esp_temperature
+  #   name: ESP Temperature
+  #   # lambda: return temperatureRead();
+  #   lambda: return cpu-temperature();
+  #   unit_of_measurement: °C
+  #   device_class: TEMPERATURE
+  #   update_interval: 60s
+  #   entity_category: "diagnostic"
 
-packages:
-  colors: !include colors/HOMEASSISTANT
+  - platform: uptime
+    id: sys_uptime
+    name: Uptime Sensor
+    update_interval: 60s
 
-font:
-  - file: 'gfonts://Roboto@400'
-    glyphs: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ°.:/+- ' 
-    id: regular
-    size: 24
-  - file: 'gfonts://Roboto@400'
-    glyphs: ' -0123456789°Cecohi'
-    id: huge
-    size: 80
-  - file: 'gfonts://Roboto@400'
-    glyphs: ' -0123456789°Cecohi'
-    id: medium
-    size: 60
-  - file: 'fonts/fa-regular-400.ttf'
-    glyphs: "\uf06c\uf7ae\uf79a\uf06d\uf1eb\ue137\uf011\ue487\uf293\ue00d\uf015\ue1b0\uf624\ue3b0\ue1a7\uf2dc\ue004\uf775\uf2f1\uf863\uf750\uf017"
-    id: symbol
-    size: 32
+  - platform: wifi_signal
+    name: RSSI
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: template
+    id: esp_memory
+    icon: mdi:memory
+    name: ESP Free Memory
+    lambda: return heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024;
+    unit_of_measurement: 'kB'
+    state_class: measurement
+    entity_category: "diagnostic"
+    update_interval: 60s
+
+  - platform: homeassistant
+    entity_id: $climate_entity
+    id: current_temperature
+    entity_category: "diagnostic"
+    internal: true
+    attribute: current_temperature
+    on_value:
+      - script.execute: display_on
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    entity_category: "diagnostic"
+    id: min_temp
+    internal: true
+    attribute: min_temp
+
+  - platform: homeassistant
+    entity_id: $climate_entity
+    entity_category: "diagnostic"
+    id: max_temp
+    internal: true
+    attribute: max_temp
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: target_temperature
+    entity_category: "diagnostic"
+    attribute: temperature
+    internal: true
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: target_temp_high
+    entity_category: "diagnostic"
+    attribute: target_temp_high
+    internal: true
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: target_temp_low
+    entity_category: "diagnostic"
+    attribute: target_temp_low
+    internal: true
+
+text_sensor:
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: hvac_mode
+    entity_category: "diagnostic"
+    internal: true
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: hvac_action
+    entity_category: "diagnostic"
+    internal: true
+    attribute: hvac_action
+
+  - platform: homeassistant
+    entity_id: ${climate_entity}
+    id: preset_mode
+    entity_category: "diagnostic"
+    internal: true
+    attribute: preset_mode
+
+time:
+  - platform: sntp
+    id: time_now
+
+button:
+  - platform: restart
+    icon: mdi:power-cycle
+    name: "${device_name} Reboot"
+
+  - platform: factory_reset
+    disabled_by_default: True
+    name: "${device_name} Factory Reset"
+    id: factory_reset_al
+
+  - platform: template      # Home assistant control
+    id: ${device_name}_vibrate_on
+    name: "${device_name} Vibrate ON"
+    icon: "mdi:vibrate"
+    on_press:
+      - script.execute: vibrate_on
+
+  - platform: template      # Home assistant control
+    id: ${device_name}_vibrate_off
+    name: "${device_name} Vibrate OFF"
+    icon: "mdi:vibrate"
+    on_press:
+      - script.execute: vibrate_off
+
+  - platform: template      # Home assistant control
+    id: ${device_name}_vibrate_button
+    name: "${device_name} Vibrate Button"
+    icon: "mdi:vibrate"
+    on_press:
+      - script.execute: vibrate
+  
+  - platform: template      # Home assistant control
+    id: ${device_name}_long_vibrate
+    name: "${device_name} Long Vibrate"
+    icon: "mdi:vibrate"
+    on_press:
+      - script.execute: long_vibrate
+  
+  - platform: template      # Home assistant control
+    id: ${device_name}_light_decrease
+    name: "${device_name} Light Decrease"
+    icon: "mdi:vibrate"
+    on_press:  
+      - homeassistant.service:
+          service: script.lounge_dimmer_decrease  
+  - platform: template      # Home assistant control
+    id: ${device_name}_light_increase
+    name: "${device_name} Light Increase"
+    icon: "mdi:vibrate"
+    on_press:  
+      - homeassistant.service:
+          service: script.lounge_dimmer_increase
 
 output:
   - platform: ledc
@@ -165,52 +351,133 @@ light:
     name: None
     default_transition_length: 500ms
     restore_mode: ALWAYS_ON
-    on_turn_on:
-      then:
-        - component.update: ${device_name}_display
-        - if:
-            condition:
-              or:
-                - display.is_displaying_page: page_qr_wifi
-                - display.is_displaying_page: page_qr_esphome
-                - display.is_displaying_page: page_boot
-            then:
-              - light.turn_on: ${device_name}_backlight
-            else:
-              - delay: 120s
-              - light.turn_off: ${device_name}_backlight
+    # on_turn_on:
+    #   then:
+    #     - component.update: ${device_name}_display
+    #     - if:
+    #         condition:
+    #           or:
+    #             - display.is_displaying_page: page_qr_wifi
+    #             - display.is_displaying_page: page_qr_esphome
+    #             - display.is_displaying_page: page_boot
+    #         then:
+    #           - light.turn_on: ${device_name}_backlight
+    #         else:
+    #           - delay: 120s
+    #           - light.turn_off: ${device_name}_backlight
 
 
-select: 
-  - platform: template
-    name: Page
-    id: ${device_name}_page
-    internal: true
-    options:
-      - boot
-      - qr_wifi
-      - qr_esphome
-      - climate
-    optimistic: true
-    on_value:
-      then:
-      - lambda: |-
-          auto page = id(${device_name}_page).state;
-          auto display = id(${device_name}_display);
-          if ("climate" == page){
-            display->show_page( id(page_climate) );
-          }
-          if ("boot" == page){
-            display->show_page( id(page_boot) );
-          }
-          if ("qr_wifi" == page){
-            display->show_page( id(page_qr_wifi) );
-          }
-          if ("qr_esphome" == page){
-            display->show_page( id(page_qr_esphome) );
-          }
+  - platform: esp32_rmt_led_strip
+    id: led_ring
+    name: "${friendly_name} Light"
+    pin: GPIO4
+    num_leds: 15
+    rmt_channel: 0
+    rgb_order: GRB
+    chipset: ws2812
+    restore_mode: ALWAYS_ON
+    effects:
+      - pulse:
+      - random:
+      - strobe:
+      - addressable_rainbow:
+      - addressable_color_wipe:
+      - addressable_scan:
+      - addressable_twinkle:
+      - addressable_random_twinkle:
+      - addressable_fireworks:
+
+
+  #   effects:
+  #     # Use default parameters:
+  #     - random:
+  #     # Customize parameters
+  #     - random:
+  #         name: "My Slow Random Effect"
+  #         transition_length: 30s
+  #         update_interval: 30s
+  #     - random:
+  #         name: "My Fast Random Effect"
+  #         transition_length: 4s
+  #         update_interval: 5s
+  #     - pulse:
+  #     - pulse:
+  #         name: "Fast Pulse"
+  #         transition_length: 0.5s
+  #         update_interval: 0.5s
+  #         min_brightness: 0%
+  #         max_brightness: 100%
+  #     - pulse:
+  #         name: "Slow Pulse"
+  #         # transition_length: 1s      # defaults to 1s
+  #         update_interval: 2s
+  #     - pulse:
+  #         name: "Asymmetrical Pulse"
+  #         transition_length:
+  #           on_length: 1s
+  #           off_length: 500ms
+  #         update_interval: 1.5s
+  #     - strobe:
+  #     - strobe:
+  #         name: Strobe Effect With Custom Values
+  #         colors:
+  #           - state: true
+  #             brightness: 100%
+  #             red: 100%
+  #             green: 90%
+  #             blue: 0%
+  #             duration: 500ms
+  #           - state: false
+  #             duration: 250ms
+  #           - state: true
+  #             brightness: 100%
+  #             red: 0%
+  #             green: 100%
+  #             blue: 0%
+  #             duration: 500ms
+
+# select: 
+#   - platform: template
+#     name: Page
+#     id: ${device_name}_page
+#     internal: true
+#     options:
+#       - boot
+#       - qr_wifi
+#       - qr_esphome
+#       - climate
+#     optimistic: true
+#     on_value:
+#       then:
+#       - lambda: |-
+#           auto page = id(${device_name}_page).state;
+#           auto display = id(${device_name}_display);
+#           if ("climate" == page){
+#             display->show_page( id(page_climate) );
+#           }
+#           if ("boot" == page){
+#             display->show_page( id(page_boot) );
+#           }
+#           if ("qr_wifi" == page){
+#             display->show_page( id(page_qr_wifi) );
+#           }
+#           if ("qr_esphome" == page){
+#             display->show_page( id(page_qr_esphome) );
+#           }
 
 switch: 
+  # - platform: gpio
+  #   pin: 
+  #     number: 7 #Vibrating motor |	Feedback for human-computer interaction |	GPIO 7
+  #   name: Motor
+  #   id: ${device_name}_motor
+  #   entity_category: diagnostic
+  #   icon: mdi:vibrate
+  #   on_turn_on:
+  #     then:
+  #       - delay: 0.1s
+  #       - switch.turn_off: ${device_name}_motor
+  #   internal: true
   - platform: gpio
     pin: 
       number: 7 #Vibrating motor |	Feedback for human-computer interaction |	GPIO 7
@@ -218,115 +485,166 @@ switch:
     id: ${device_name}_motor
     entity_category: diagnostic
     icon: mdi:vibrate
-    on_turn_on:
-      then:
-        - delay: 0.1s
-        - switch.turn_off: ${device_name}_motor
     internal: true
 
-number:
-  - platform: template
-    name: Template Number
-    min_value: ${min_value}
-    max_value: ${max_value}
-    step: 1
-    id: ${device_name}_number
-    optimistic: true    
-    restore_value: true 
-    initial_value: ${initial_value} # Defaults to min_value.
-    set_action: 
-      then:
-        - logger.log: "placeholder set_action"
-        - script.execute: show_page_climate
-    on_value:
-      then:
-## TBD        
-#        - homeassistant.service:
-#            service: climate.set_temperature
-#            data:
-#              temperature: !lambda 'return x;'
-#              entity_id: $climate_entity
-        - script.execute: show_page_climate
-
 script:
-  # motor
+  # vibrate/haptics
+  - id: lounge_light_increase
+    then:
+      - homeassistant.service:
+          service: script.lounge_dimmer_increase
+
+  - id: lounge_light_decrease
+    then:
+      - homeassistant.service:
+          service: script.lounge_dimmer_decrease
+  
+  - id: toggle_lounge_light
+    then:
+      - homeassistant.service:
+          service: light.toggle
+          data:
+            entity_id: ${light_entity}
+
   - id: vibrate
     then: 
       - switch.turn_on: ${device_name}_motor
+      - delay: 0.1s
       - logger.log: "vibrate"
-  # display pages
-  - id: show_page_boot
-    mode: single
+      - switch.turn_off: ${device_name}_motor
+
+  - id: vibrate_on
     then: 
-      - display.page.show: page_boot
-      - delay: 5s
-      - if:
-          condition:
-            and:
-              - wifi.connected:
-              - api.connected:
-          then:
-            - script.execute: show_page_climate
-          else:
-            - script.stop: show_page_boot
-            - script.execute: show_page_boot
-  - id: show_page_climate
+      - switch.turn_on: ${device_name}_motor
+      - delay: 0.1s
+      - logger.log: "vibrate ON"
+
+  - id: vibrate_off
+    then: 
+      - switch.turn_off: ${device_name}_motor
+      - delay: 0.1s
+      - logger.log: "vibrate OFF"
+  
+  - id: light_toggle_vibrate
+    then: 
+      - switch.turn_on: ${device_name}_motor
+      - delay: 0.1s
+      - logger.log: "light_toggle_vibrate"
+      - switch.turn_off: ${device_name}_motor
+      - homeassistant.service:
+          service: light.toggle
+          data:
+            entity_id: ${light_entity}
+
+  - id: long_vibrate
     then:
-      - script.execute: display_on
-      - display.page.show: page_climate 
-  - id: decrement_number
-    then:
-      - number.decrement: ${device_name}_number
-  - id: increment_number
-    then:
-      - number.increment: ${device_name}_number
+      - switch.turn_on: ${device_name}_motor
+      - delay: 2s
+      - logger.log: "long vibrate"
+      - switch.turn_off: ${device_name}_motor
+
+  # - id: decrement_number
+  #   then:
+  #     - number.decrement: ${device_name}_number
+  # - id: increment_number
+  #   then:
+  #     - number.increment: ${device_name}_number
+
+
+  # display pages
+  # - id: show_page_boot
+  #   mode: single
+  #   then: 
+  #     - display.page.show: page_boot
+  #     - delay: 5s
+  #     - if:
+  #         condition:
+  #           and:
+  #             - wifi.connected:
+  #             - api.connected:
+  #         then:
+  #           - script.execute: show_page_climate
+  #         else:
+  #           - script.stop: show_page_boot
+  #           - script.execute: show_page_boot
+  # - id: show_page_climate
+  #   then:
+  #     - script.execute: display_on
+  #     - display.page.show: page_climate 
+  # - id: decrement_number
+  #   then:
+  #     - number.decrement: ${device_name}_number
+  # - id: increment_number
+  #   then:
+  #     - number.increment: ${device_name}_number
   - id: display_off
     then:
       - light.turn_off: ${device_name}_backlight
   - id: display_on
     then:
       - light.turn_on: ${device_name}_backlight
-      - component.update: ${device_name}_display
+      # - component.update: ${device_name}_display
+  # - id:incrimental_full_light_button
+  #   filters:
+  #     - invert:
+  #   on_multi_click:
+  #   - timing:
+  #       - ON for 0.1s to 1s
+  #     then:
+  #       - logger.log: "Lounge Lights 25%"
+  #       - homeassistant.service:
+  #           service: input_select.select_next
+  #           data:
+  #             entity_id: input_select.hue_scenes
+  #   - timing:
+  #       - ON for 1.1s to 2s
+  #     then:
+  #       - logger.log: "Lounge Lights 50%"
+  #       - homeassistant.service:
+  #           service: input_boolean.toggle
+  #           data:
+  #             entity_id: input_boolean.radio_woonkamer
 
-binary_sensor: 
+binary_sensor:
+  - platform: template
+    id: is_motor_running
+    on_press:
+      then:
+        - switch.turn_on: ${device_name}_motor             # Turn on motor.
+        
+    on_release:
+      then:
+        - switch.turn_off: ${device_name}_motor            # Turn off motor.
 ##Hall encoder	
 ## Hall encoder is used for rotating operation in human-computer interaction, and orthogonal encoder is adopted
 ## GPIO 5、6
-  - platform: gpio
-    pin: 
-      number: 5 #17 
-    name: Turn Left # is okay
-    internal: true
-    id: ${device_name}_gpio5_debounced
+  # - platform: gpio
+  #   pin: 
+  #     number: 6 #17 
+  #   name: Turn Left # is okay
+  #   internal: true
+  #   id: ${device_name}_gpio6_debounced
+  #   on_press:
+  #     then:
+  #       - script.execute: lounge_light_decrease
+  #       - logger.log:
+  #           format: "rotate left. Calling script light decrease."
+  #           level: DEBUG
+  #       # - script.execute: vibrate   # Run the motor.
+  # - platform: gpio
+  #   pin: 
+  #     number: 5 #16
+  #   name: Turn Right
+  #   id: ${device_name}_gpio5_debounced
+  #   internal: true
+  #   on_press:
+  #     then:
+  #       - script.execute: lounge_light_increase
+  #       - logger.log:
+  #           format: "rotate right. Calling script light increase."
+  #           level: DEBUG
+  #   #     - script.execute: vibrate   # Run the motor.
 
-  - platform: gpio
-    pin: 
-      number: 6 #16
-    name: Turn Right
-    id: ${device_name}_gpio6_debounced
-    internal: true
-    filters:
-## Cant get it to work reliably      
-#      - delayed_off: 200ms
-#      - delayed_on_off: 300ms
-      - delayed_on: 200ms
-      - delayed_off: 500ms
-#      - delayed_on_off: 300ms
-      - lambda: |-
-          if (id(${device_name}_gpio5_debounced).state) {
-            return x;
-          } else {
-            return {};
-          }
-    on_state:
-      then:
-        - lambda: |-
-            if (id(${device_name}_gpio5_debounced).state) {
-              id(increment_number).execute();
-            } else {
-              id(decrement_number).execute();
-            }
-        - script.execute: vibrate
 
   - platform: gpio
     pin: 
@@ -356,172 +674,38 @@ binary_sensor:
       # Only send an ON or OFF value if the binary sensor has stayed in the same state for at least the specified time period. 
       ## Useful for debouncing binary switches.
     on_press:
-      - lambda: |-      
-          ESP_LOGW("button", "pressed at %lu", millis());
-    on_release:
-      - lambda: |-      
-          ESP_LOGE("button", "release at %lu", millis());
-#    on_press:
-#      then: 
-#        - lambda: |-
-#            ESP_LOGE("button", "on_press");        
-#        - script.execute: vibrate
-#    on_click:
-#      then: 
-#        - lambda: |-
-#            ESP_LOGE("button", "on_click");        
-#    on_multi_click:
-#      - timing: !include common/click/single.yaml
-#        then:
-#          - script.execute: display_on 
-
-sensor:
-## Did not work at all because turning right is a nightmare
-
-##  - platform: rotary_encoder
-##    name: Rotary Encoder
-##    id: ${device_name}_rotary
-##    entity_category: diagnostic
-##    icon: mdi:cached
-###    internal: true
-##    pin_a: 
-##      number: 17
-###      inverted: true
-###      mode:
-###        input: true
-###        pullup: true
-##    pin_b: 16
-###      inverted: true
-###      mode:
-###        input: true
-###        pullup: true
-##    resolution: 1
-##    min_value: ${min_value}
-##    max_value: ${max_value}
-##    publish_initial_value: true
-##    restore_mode: RESTORE_DEFAULT_ZERO
-##    on_clockwise: 
-##      then: 
-##        - lambda: |-
-##            ESP_LOGE("rotary", "on_clockwise: %f", id(${device_name}_rotary).state );
-##    on_anticlockwise: 
-##      then: 
-##        - lambda: |-
-##            ESP_LOGE("rotary", "on_anticlockwise: %f", id(${device_name}_rotary).state );
-  - platform: template
-    name: "ESP CPU Speed"
-    accuracy_decimals: 0
-    unit_of_measurement: Mhz
-    lambda: |-
-      return (id(cpu_speed));
-    entity_category: "diagnostic"
-    update_interval: 600s
-  
-  - platform: template
-    id: sys_esp_temperature
-    name: ESP Temperature
-    lambda: return temperatureRead();
-    unit_of_measurement: °C
-    device_class: TEMPERATURE
-    update_interval: 45s
-    entity_category: "diagnostic"
-  
-  - platform: uptime
-    name: Uptime
-    id: sys_uptime
-    update_interval: 60s
-  
-  - platform: wifi_signal 
-    name: RSSI
-    id: wifi_signal_db
-    update_interval: 60s
-    entity_category: "diagnostic"
-  
-  - platform: template
-    id: esp_memory
-    icon: mdi:memory
-    name: ESP Free Memory
-    lambda: return heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024;
-    unit_of_measurement: 'kB'
-    state_class: measurement
-    entity_category: "diagnostic"
-    update_interval: 60s
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: current_temperature
-    entity_category: diagnostic
-    internal: true
-    attribute: current_temperature
-    on_value:
-      - script.execute: display_on
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: min_temp
-    internal: true
-    attribute: min_temp
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: max_temp
-    internal: true
-    attribute: max_temp
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: target_temperature
-    entity_category: diagnostic
-    attribute: temperature
-    internal: true
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: target_temp_high
-    entity_category: diagnostic
-    attribute: target_temp_high
-    internal: true
-
-  - platform: homeassistant
-    entity_id: $climate_entity
-    id: target_temp_low
-    entity_category: diagnostic
-    attribute: target_temp_low
-    internal: true
-
-text_sensor:
-
-   - platform: homeassistant
-     entity_id: $climate_entity
-     id: hvac_mode
-     entity_category: diagnostic
-     internal: true
- 
-   - platform: homeassistant
-     entity_id: $climate_entity
-     id: hvac_action
-     entity_category: diagnostic
-     internal: true
-     attribute: hvac_action
- 
-   - platform: homeassistant
-     entity_id: $climate_entity
-     id: preset_mode
-     entity_category: diagnostic
-     internal: true
-     attribute: preset_mode
-
-qr_code:
-  - id: qr_hotspot
-    value: "WIFI:S:${ap_ssid};T:WPA;P:${ap_password};;"
-  - id: qr_esphome
-    value: https://my.home-assistant.io/redirect/config_flow_start/?domain=esphome 
+      then:
+        - script.execute: vibrate
+        - script.execute: toggle_lounge_light
+        # - logger.log:
+        #     format: "button pressed at %.lu"
+        #     level: DEBUG
+      # - logger.log:
+      #     format: "button pressed at %lu"
+      # - lambda: |-      
+      #     # ESP_LOGW("button", "pressed at %lu", millis());
+      #     ESP_LOGW("button", "pressed at %lu", (unsigned int)esp_log_timestamp());
+    # on_release:
+    #   then:
+    #     - logger.log:
+    #         format: "button released at %.lu"
+    #         level: DEBUG
+      # - lambda: |-      
+      #     ESP_LOGE("button", "release at %lu", (unsigned int)esp_log_timestamp());
+psram:
+  mode: octal
+  speed: 80MHz
 
 spi:
   - id: lcd_spi
-    clk_pin: GPIO47 # sck : 14
-    mosi_pin: GPIO41 # sda : 33
-
+    clk_pin:
+      number: 47 #47 # sck : 14
+      allow_other_uses: true
+    mosi_pin:
+      number: 41 #41 # sda : 33
+      allow_other_uses: true
+    # software: true
+    # interface: hardware
 display:
   - platform: st7701s
     id: ${device_name}_display
@@ -543,357 +727,31 @@ display:
     pclk_pin: 45
     init_sequence:
       - 1 # select canned init sequence number 1
+      #- [0x3A, 0x50] # 16 bit pixel format. (wrong)
+      #- [0x3A, 0x60] # 18 bit pixel format. (this is default configuration. No need to apply)
+      # - [0xFF, 0x77, 0x01, 0x00, 0x00, 0x10] # CMD2_BKSEL_BK0
+      # - [0xCD, 0x00] # disable MDT flag
     data_pins:
       red:
-        - 10         #r1
-        - 16         #r2
-        - 9         #r3
-        - 15         #r4
-        - 46          #r5
+        - number: 10         #r1
+        - number: 16         #r2
+        - number: 9         #r3
+        - number: 15         #r4
+        - number: 46          #r5
+          ignore_strapping_warning: true
       green:
-        - 8         #g0
-        - 13        #g1
-        - 18         #g2
-        - 12        #g3
-        - 11         #g4
-        - 17        #g5
+        - number: 8         #g0
+        - number: 13        #g1
+        - number: 18         #g2
+        - number: 12        #g3
+        - number: 11         #g4
+        - number: 17        #g5
       blue:
-        - 47        #b1
-        - 41        #b2
-        - 0        #b3
-        - 42        #b4
-        - 14       #b5
-
-
-#   # 240 x 320
-#   - platform: st7789v
-#     id: ${device_name}_display
-#     model: Custom
-#     width: 480
-#     height: 480
-#     offset_height: 0
-#     offset_width: 0
-# ###
-#     eightbitcolor: true # OR IT BREAKS
-# ###    backlight_pin: GPIO35 ## breaks color
-#     update_interval: 20s
-#     cs_pin: 34
-#     dc_pin: 13
-    #reset_pin: 21
-    on_page_change: 
-      then: 
-        - light.turn_on: ${device_name}_backlight
-    pages:
-    - id: page_boot
-      lambda: |-
-        id(${device_name}_page).publish_state("boot");
-
-        // CANVAS DIMENSIONS // width: 480 // height: 480
-        int w = it.get_width();
-        int h = it.get_height();
-
-        auto icon = "\ue1a7"; // hand-wave // \uf293 = bluetooth // \uf1eb = wifi
-        auto color = id(gray);
-
-        static std::vector<Color> colors = {id(mode_heat), id(mode_cool), id(mode_dry), id(mode_fan), id(mode_heat_cool), id(mode_idle), id(mode_eco), id(mode_auto)};
-        int random_index = rand() % colors.size(); // Generate a random index between 0 and the size of the colors vector
-        Color random_color = colors[random_index];        
-
-        it.print(w/2, h/2 , id(huge), random_color, TextAlign::CENTER, "hi");
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.print(w/2, w, id(symbol), random_color, TextAlign::CENTER, icon);
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.print(w/2, h - 20, id(regular), random_color, TextAlign::CENTER, "nESP");        
-
-    - id: page_qr_wifi
-      lambda: |-
-        id(${device_name}_page).publish_state("qr_wifi");
-
-        // CANVAS DIMENSIONS // width: 480 // height: 480
-        int w = it.get_width();
-        int h = it.get_height();
-
-        auto icon = "\uf1eb"; // \uf293 = bluetooth // \uf1eb = wifi
-        auto color = id(gray);
-
-        static std::vector<Color> colors = {id(mode_heat), id(mode_cool), id(mode_dry), id(mode_fan), id(mode_heat_cool), id(mode_idle), id(mode_eco), id(mode_auto)};
-        int random_index = rand() % colors.size(); // Generate a random index between 0 and the size of the colors vector
-        Color random_color = colors[random_index];        
-
-        it.qr_code(w/3.5, h/4, id(qr_hotspot), random_color, 4);
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.print(w/2, w, id(symbol), random_color, TextAlign::CENTER, icon);
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.printf(w/2, h - 20, id(regular), random_color, TextAlign::CENTER, "nESP" );
-
-    - id: page_qr_esphome
-      lambda: |-
-        id(${device_name}_page).publish_state("qr_esphome");
-
-        // CANVAS DIMENSIONS // width: 480 // height: 480
-        int w = it.get_width();
-        int h = it.get_height();
-
-        auto icon = "\ue137"; // cloud-slash // "\uf0c1"; // link // "\ue35e"; // cloud-plus
-        auto color = id(gray);
-
-        static std::vector<Color> colors = {id(mode_heat), id(mode_cool), id(mode_dry), id(mode_fan), id(mode_heat_cool), id(mode_idle), id(mode_eco), id(mode_auto)};
-        int random_index = rand() % colors.size(); // Generate a random index between 0 and the size of the colors vector
-        Color random_color = colors[random_index];        
-
-        it.qr_code(w/3.5, h/4, id(qr_esphome), random_color, 4);
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.print(w/2, w, id(symbol), random_color, TextAlign::CENTER, icon);
-        random_index = rand() % colors.size();
-        random_color = colors[random_index];
-        it.printf(w/2, h - 20, id(regular), random_color, TextAlign::CENTER, "nESP" );
-
-    - id: page_climate
-      lambda: |-
-        id(${device_name}_page).publish_state("climate");
-
-        // CANVAS DIMENSIONS // width: 480 // height: 480
-        int w = it.get_width();
-        int h = it.get_height();
-        int h2 = h / 2;
-        int w2 = w / 2;
-        int yheader = h / 3;
-        int yfooter = h - 20;
-
-        // font sizes
-        auto main_font = id(huge);
-
-        // text values
-        std::string huge_text = "x";
-        auto get_mode = id(hvac_mode).state;
-        auto get_hvac_action = id(hvac_action).state;
-        auto get_preset_mode = id(preset_mode).state;
-
-        // bools
-        auto dual = false;
-
-        // numeric
-        float get_target_temp_low = id(target_temp_low).state;
-        float get_target_temp_high = id(target_temp_high).state;
-        float get_target_temperature = id(target_temperature).state; 
-        // check for dual mode
-        if (isnan(get_target_temperature) ){
-          dual = true;
-          get_target_temperature = round((get_target_temp_low + get_target_temp_high) / 2);
-        }
-        else { // (!isnan(get_target_temp_high) && !isnan(get_target_temp_low))
-
-        }
-
-        float get_current_temperature = id(current_temperature).state;
-        float minTemp = 15.0;
-        float maxTemp = 30.0;
-
-        // COLORS
-        auto color_neutral = id(graydark);
-        auto color_main = id(graydark);
-        auto color_accent = color_main;
-        auto color_background = id(black);
-        auto linecolor = id(graydarker);
-        auto linecolor_heat = id(mode_heat);
-        auto linecolor_cool = id(mode_cool);
-        // ICON
-        auto icon = "\uf624";
-
-        // Map the current temperature to an angle between the start and end angles
-        float skipStartAngle = 60.0; // Start angle of the skipped range
-        float skipEndAngle = 120.0;   // End angle of the skipped range
-        float angleRange = (360.0 - (skipEndAngle - skipStartAngle));
-        float tempRatio = (get_target_temperature - minTemp) / (maxTemp - minTemp);
-        float tempAngle = skipStartAngle + tempRatio * angleRange;
-        // Adjust the number of stripes and the stripe width
-        int numStripes = w2 / 2;
-        int stripeLength = w / 15;
-        int radius = w2;
-
-        // hvac_mode (state)
-        if ( get_mode == "heat" ){
-          color_main = id(mode_heat);
-          icon = "\uf06d"; // fire
-        }
-        else if (get_mode == "cool") { 
-          color_main = id(mode_cool);
-          icon = "\uf2dc"; // snowflake
-        }
-        else if (get_mode == "dry") { 
-          color_main = id(mode_dry);
-          icon = "\uf750"; // droplet-percent
-        }
-        else if (get_mode == "fan_only") { 
-          color_main = id(mode_fan);
-          icon = "\uf863"; // fan
-        }
-        else if (get_mode == "heat_cool") { 
-          color_main = id(mode_heat_cool);
-          icon = "\uf2f1"; // rotate          
-        }        
-        
-
-        // heat_cool hvac_action options: idle, cooling, heating
-        if (get_hvac_action == "idle") { 
-          if (get_mode == "heat_cool"){
-            color_main = id(mode_heat_cool);
-          }          
-          else if (get_mode == "heat"){
-            color_main = id(mode_heat);
-          }          
-          else if (get_mode == "cool"){
-            color_main = id(mode_cool);
-          }          
-          else{
-            color_main = id(mode_idle);
-            icon = "\uf017"; // clock            
-          }
-          icon = "\uf017"; // clock            
-          color_accent = id(mode_idle);
-        }
-        
-        if ( (get_mode == "off") || (get_hvac_action == "off") ){ 
-          color_main = id(graydarker);
-          color_accent = id(graydark);
-          linecolor = id(graydarker);
-          icon = "\uf011"; // power-off
-        }
-        ////////////////////////////////////////////////////////////////////////////////////
-        // Draw filled circle if not off or idle
-        ////////////////////////////////////////////////////////////////////////////////////
-        if ( (get_hvac_action == "heating") || (get_hvac_action == "cooling") || (get_hvac_action == "drying") || (get_hvac_action == "fan" ) ) { 
-          // stripeLength = stripeLength + w / 40;
-          radius = radius - w / 40;
-          it.filled_circle(w2, h2, w2, color_main);
-          linecolor_heat = id(gray);
-          linecolor_cool = id(black);
-          linecolor = id(white);
-          color_accent = color_main;
-          it.print(w2, yheader, id(regular), color_background, TextAlign::CENTER, get_hvac_action.c_str() );
-        }
-        ////////////////////////////////////////////////////////////////////////////////////
-        // DRAW stripes around circle
-        ////////////////////////////////////////////////////////////////////////////////////
-        int counter = 0;
-        for (int i = 0; i < numStripes; i++) {
-          float angle = 360.0 / numStripes * i;
-          if (angle >= skipStartAngle && angle <= skipEndAngle) {
-            continue;
-          }
-          float angleRad = angle * (3.14159265 / 180.0);
-          int startX = w2 + radius * cos(angleRad);
-          int startY = h2 + radius * sin(angleRad);
-          int endX = w2 + (radius - stripeLength) * cos(angleRad);
-          int endY = h2 + (radius - stripeLength) * sin(angleRad);
-          auto line = linecolor;
-          ////////////////////////////////////////////////////////////////////////////////////
-          // Calculate angles for current and set temperatures
-          ////////////////////////////////////////////////////////////////////////////////////
-          float setTempAngle = skipStartAngle + ((get_target_temperature - minTemp) / (maxTemp - minTemp)) * angleRange;
-          float currentTempAngle = skipStartAngle + ((get_current_temperature - minTemp) / (maxTemp - minTemp)) * angleRange;
-
-          // Check if the angle is within the range of set temperature and current temperature
-          if ((angle >= currentTempAngle && angle <= setTempAngle) || (angle >= setTempAngle && angle <= currentTempAngle)) {
-            if (angle >= currentTempAngle && angle <= setTempAngle) {
-              line = linecolor_heat;
-              it.line(startX, startY, endX, endY, line );
-              } else if (angle >= setTempAngle && angle <= currentTempAngle) {
-                line = linecolor_cool;
-                it.line(startX, startY, endX, endY, line );
-              }
-            } 
-            else {
-              it.line(startX, startY, endX, endY, linecolor );
-            }
-          }
-          ////////////////////////////////////////////////////////////////////////////////////
-          // DRAW CURRENT TEMPERATURE POSITION AS A DOT
-          ////////////////////////////////////////////////////////////////////////////////////
-          // 120 should be minimum // skipEndAngle(60)
-          // 420 should be maximum // 360 + skipStartAngle(120) = 420
-          // float setTempAngle = skipStartAngle + ((get_target_temperature - minTemp) / (maxTemp - minTemp)) * angleRange;
-          // ESP_LOGI("angle", "setTempAngle: %f", setTempAngle);
-
-          float customAngle = tempRatio * (360 - (skipEndAngle - skipStartAngle)) + skipStartAngle;
-
-          // Ensure the custom angle is within the valid range
-          if (customAngle > 420 ){
-            customAngle = 420;
-          }
-          else if (customAngle < 120){
-            customAngle = 120;
-          }
-          float offsetAngle = (customAngle) * (3.14159265 / 180.0); //  0.0174532925;
-          float cosValue = cos(offsetAngle);
-          float sinValue = sin(offsetAngle);
-
-          int outercircleradius = stripeLength / 2;
-          int outercircleX = w2 + (radius - outercircleradius ) * cosValue;
-          int outercircleY = h2 + (radius - outercircleradius ) * sinValue;
-
-          int innercircleradius = outercircleradius - 4;
-          int innercircleX = w2 + (radius - innercircleradius - 4 ) * cosValue;
-          int innercircleY = h2 + (radius - innercircleradius - 4) * sinValue;
-
-          ////////////////////////////////////////////////////////////////////////////////////
-          // DRAW set temperature in middle
-          ////////////////////////////////////////////////////////////////////////////////////
-          if (get_preset_mode == "eco") {
-            huge_text = "eco";
-            color_main = id(mode_eco);
-            } else  {
-                char buffer[32];
-                float value = round(get_target_temperature);
-                if (value != 0 && !isnan(value) ){
-                  snprintf(buffer, sizeof(buffer), "%.0f", value); // Convert float to a C-style string
-                  huge_text = buffer;
-                }                
-            }
-
-              if ( dual ){
-                main_font = id(medium);
-                float value_low = round(get_target_temp_low);
-                float value_high = round(get_target_temp_high);
-                std::string separator = " - ";
-                huge_text = std::to_string((int)value_low) + separator + std::to_string((int)value_high);
-                //ESP_LOGW("display", huge_text.c_str() );
-              }  
-              else {
-                float value = round(get_target_temperature);
-                if (value != 0 && !isnan(value) ){
-                  huge_text = std::to_string((int)value);
-                }                
-
-              }            
-
-              // Draw current temperature at bottom
-              it.printf(w2, yfooter, id(regular), color_neutral, TextAlign::CENTER, "%.0f", get_current_temperature );
-
-              // dual gauge mode:
-              // it.printf(w2, yfooter, id(regular), color_main, TextAlign::CENTER, "%.0f - %.0f", get_target_temp_low, get_target_temp_high);
-
-              //else { it.print(w2, yfooter, id(regular), currentcolor, TextAlign::CENTER, "nESP");}
-
-              // invert colors for filled background
-              if ( (get_hvac_action == "heating") || (get_hvac_action == "cooling") || (get_hvac_action == "drying") || (get_hvac_action == "fan" ) ) { 
-                auto hold = color_accent;
-                color_accent = color_background;
-                color_main = color_background;
-                color_background = hold;
-              }
-
-              // Draw icon 
-              it.print(w2, w, id(symbol), color_main, TextAlign::CENTER, icon);
-
-              // draw set at center
-              it.print(w2, h2 , main_font, color_accent, TextAlign::CENTER, huge_text.c_str() );
-
-              // draw set_temp dot
-              it.filled_circle(outercircleX, outercircleY, outercircleradius, color_accent );
-              it.filled_circle(innercircleX, innercircleY, innercircleradius, color_background );
+        - number: 47        #b1
+          allow_other_uses: true
+        - number: 41        #b2
+          allow_other_uses: true
+        - number: 0        #b3
+          ignore_strapping_warning: true
+        - number: 42        #b4
+        - number: 14       #b5
