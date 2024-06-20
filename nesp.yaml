@@ -734,25 +734,25 @@ display:
       # - [0xCD, 0x00] # disable MDT flag
     data_pins:
       red:
-        - number: 10         #r1
-        - number: 16         #r2
-        - number: 9         #r3
-        - number: 15         #r4
-        - number: 46          #r5
+        - number: 10        #R1
+        - number: 16        #R2
+        - number: 9         #R3
+        - number: 15        #R4
+        - number: 46        #R5
           ignore_strapping_warning: true
       green:
-        - number: 8         #g0
-        - number: 13        #g1
-        - number: 18         #g2
-        - number: 12        #g3
-        - number: 11         #g4
-        - number: 17        #g5
+        - number: 8         #G0
+        - number: 13        #G1
+        - number: 18        #G2
+        - number: 12        #G3
+        - number: 11        #G4
+        - number: 17        #G5
       blue:
-        - number: 47        #b1
+        - number: 47        #B1
           allow_other_uses: true
-        - number: 41        #b2
+        - number: 41        #B2
           allow_other_uses: true
-        - number: 0        #b3
+        - number: 0         #B3
           ignore_strapping_warning: true
-        - number: 42        #b4
-        - number: 14       #b5
+        - number: 42        #B4
+        - number: 14        #B5
